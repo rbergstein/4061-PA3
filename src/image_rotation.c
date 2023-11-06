@@ -2,9 +2,13 @@
  
  
 //Global integer to indicate the length of the queue??
+int queue_length;
 //Global integer to indicate the number of worker threads
+int num_worker_threads;
 //Global file pointer for writing to log file in worker??
+FILE* log_file;
 //Might be helpful to track the ID's of your threads in a global array
+pthread_t threads_arr[MAX_THREADS]; // might be an int?
 //What kind of locks will you need to make everything thread safe? [Hint you need multiple]
 //What kind of CVs will you need  (i.e. queue full, queue empty) [Hint you need multiple]
 //How will you track the requests globally between threads? How will you ensure this is thread safe?
@@ -23,7 +27,7 @@
     The function output: 
     it should output the threadId, requestNumber, file_name into the logfile and stdout.
 */
-void log_pretty_print(FILE* to_write, int threadId, int requestNumber, char * file_name){
+void log_pretty_print(FILE* to_write, int threadId, int requestNumber, char * file_name){ // not needed for inter sub
    
 }
 
@@ -107,7 +111,8 @@ void * worker(void *args)
         
         
         //uint8_t* img_array = NULL; ///Hint malloc using sizeof(uint8_t) * width * height
-    
+        uint8_t* img_array = (uint8_t *)malloc(sizeof(uint8_t) * width * height); // attempt at above TODO - Ryan
+
 
         ///TODO: you should be ready to call flatten_mat function, using result_matrix
         //img_arry and width and height; 
@@ -144,5 +149,12 @@ int main(int argc, char* argv[])
     }
     
     ///TODO: 
+    // image_rotation is made with "./image_rotation <input_dir> <output_dir> <number_threads> <rotation_angle>" via the writeup
+    char* input_dir = argv[1]; // used to create the single processing thread
+    char* output_dir = argv[2]; // used for the rest of the N worker threads
+    num_worker_threads = argv[3];
+    int rotation_angle = argv[4];
 
+    // For the intermediate submission, you only need to traverse a given directory and populating the request queue. 
+    // Also, spawn N worker threads, print their threadID (Which you can pass in as parameters when creating the thread) and exit.
 }
