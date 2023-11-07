@@ -1,4 +1,14 @@
 #include "image_rotation.h"
+ 
+typedef struct ProcessorArgument {
+    char* input_dir;
+    int num_worker_threads;
+    int rotation_angle;
+} processArgs;
+
+typedef struct WorkerArgument {
+    char* threadID;
+} workerArgs;
 
 //Global integer to indicate the length of the queue??
 int queue_length;
@@ -9,8 +19,16 @@ FILE* log_file;
 //Might be helpful to track the ID's of your threads in a global array
 pthread_t threads_arr[MAX_THREADS]; // might be an int?
 //What kind of locks will you need to make everything thread safe? [Hint you need multiple]
+pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+
 //What kind of CVs will you need  (i.e. queue full, queue empty) [Hint you need multiple]
+pthread_cond_t queue_full = PTHREAD_COND_INITIALIZER;
+pthread_cond_t queue_empty = PTHREAD_COND_INITIALIZER;
 //How will you track the requests globally between threads? How will you ensure this is thread safe?
+
+
+
 //How will you track which index in the request queue to remove next?
 //How will you update and utilize the current number of requests in the request queue?
 //How will you track the p_thread's that you create for workers?
