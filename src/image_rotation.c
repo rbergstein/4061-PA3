@@ -1,14 +1,4 @@
 #include "image_rotation.h"
- 
-typedef struct ProcessorArgument {
-    char* input_dir;
-    int num_worker_threads;
-    int rotation_angle;
-} processArgs;
-
-typedef struct WorkerArgument {
-    char* threadID;
-} workerArgs;
 
 //Global integer to indicate the length of the queue??
 int queue_length;

@@ -41,15 +41,19 @@
 
 /********************* [ Helpful Typedefs        ] ************************/
 
-typedef struct request_queue
-{
-    //what data do you need here?
+typedef struct request_queue {
+    char* file_name;
 }request_t; 
 
-typedef struct processing_args
-{
-   //what data do you need here?
+typedef struct processing_args {
+    char* input_dir;
+    int num_worker_threads;
+    int rotation_angle;
 } processing_args_t;
+
+typedef struct WorkerArgument {
+    char* threadID;
+} workerArgs;
 
 
 /********************* [ Function Prototypes       ] **********************/
