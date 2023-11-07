@@ -56,8 +56,19 @@ void log_pretty_print(FILE* to_write, int threadId, int requestNumber, char * fi
 
 */
 
-void *processing(void *args)
-{
+void *processing(void *args) {
+    processArgs *pargs = (processArgs *)args;
+    DIR *dir = opendir(pargs->input_dir);
+    struct dirent *entry;
+
+    if (dir == NULL) {
+        perror("Failed to open directory");
+        exit(1);
+    }
+
+    while((entry = readdir(dir)) != NULL){ 
+
+    }
 
 
 }
