@@ -7,17 +7,13 @@ int num_worker_threads;
 //Global file pointer for writing to log file in worker??
 FILE* log_file;
 //Might be helpful to track the ID's of your threads in a global array
-pthread_t threads_arr[MAX_THREADS]; // might be an int?
+pthread_t worker_threads[MAX_THREADS]; // might be an int?
 //What kind of locks will you need to make everything thread safe? [Hint you need multiple]
 pthread_mutex_t queue_lock = PTHREAD_MUTEX_INITIALIZER;
-
-
 //What kind of CVs will you need  (i.e. queue full, queue empty) [Hint you need multiple]
 pthread_cond_t queue_full = PTHREAD_COND_INITIALIZER;
 pthread_cond_t queue_empty = PTHREAD_COND_INITIALIZER;
 //How will you track the requests globally between threads? How will you ensure this is thread safe?
-
-
 //How will you track which index in the request queue to remove next?
 //How will you update and utilize the current number of requests in the request queue?
 //How will you track the p_thread's that you create for workers?
@@ -56,7 +52,7 @@ request_t reqlist[10];
 int index_counter = 0;
 
 void *processing(void *args) {
-    processing_args_t *pargs = (processing_args_t *)args;
+    processing_args_t *pargs = (processing_args_t *) args;
     DIR *dir = opendir(pargs->input_dir);
     struct dirent *entry;
 
@@ -182,8 +178,8 @@ int main(int argc, char* argv[]) {
 
     char* input_dir = argv[1]; // used to create the single processing thread
     char* output_dir = argv[2]; // used for the rest of the N worker threads
-    num_worker_threads = argv[3];
-    int rotation_angle = argv[4];
+    num_worker_threads = atoi(argv[3]);
+    int rotation_angle = atoi(argv[4]);
 
     queue_length = 0;
 
@@ -193,7 +189,7 @@ int main(int argc, char* argv[]) {
         exit(-1);
     }
 
-    processArgs processor_args = {input_dir, &num_worker_threads, &rotation_angle};
+    processing_args_t processor_args = {input_dir, num_worker_threads, rotation_angle};
 
     pthread_t processor; // create single processor thread
     if (pthread_create(&processor, NULL, (void *)processing, &processor_args) != 0) {
@@ -201,12 +197,9 @@ int main(int argc, char* argv[]) {
         exit(-1);
     }
     
-    pthread_t worker; // create n worker threads
+    // create n worker threads
     for (int i = 0; i < num_worker_threads; i++) {
-        char threadID[100];
-        sprintf(threadID, "Worker Thread ID: %d\n", i);
-        workerArgs worker_arg = {threadID};
-        if (pthread_create(&worker, NULL (void *)worker, &worker_arg) != 0) {
+        if (pthread_create(&worker_threads[i], NULL, (void *)worker, (void *)(intptr_t)i) != 0) {
             fprintf(stderr, "Error creating a worker thread\n");
             exit(-1);
         }
@@ -214,7 +207,7 @@ int main(int argc, char* argv[]) {
 
     pthread_join(processor, NULL);
     for (int i = 0; i < num_worker_threads; i++) {
-        pthread_join(worker, NULL);
+        pthread_join(worker_threads[i], NULL);
     }
 
     fclose(log_file);
