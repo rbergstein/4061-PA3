@@ -1,14 +1,4 @@
 #include "image_rotation.h"
- 
-typedef struct ProcessorArgument {
-    char* input_dir;
-    int num_worker_threads;
-    int rotation_angle;
-} processArgs;
-
-typedef struct WorkerArgument {
-    char* threadID;
-} workerArgs;
 
 //Global integer to indicate the length of the queue??
 int queue_length;
@@ -19,14 +9,13 @@ FILE* log_file;
 //Might be helpful to track the ID's of your threads in a global array
 pthread_t threads_arr[MAX_THREADS]; // might be an int?
 //What kind of locks will you need to make everything thread safe? [Hint you need multiple]
-pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t queue_lock = PTHREAD_MUTEX_INITIALIZER;
 
 
 //What kind of CVs will you need  (i.e. queue full, queue empty) [Hint you need multiple]
 pthread_cond_t queue_full = PTHREAD_COND_INITIALIZER;
 pthread_cond_t queue_empty = PTHREAD_COND_INITIALIZER;
 //How will you track the requests globally between threads? How will you ensure this is thread safe?
-
 
 
 //How will you track which index in the request queue to remove next?
@@ -63,9 +52,11 @@ void log_pretty_print(FILE* to_write, int threadId, int requestNumber, char * fi
     5: The processing thread will cross check if the condition from step 4 is met and it will signal to the worker to exit and it will exit.
 
 */
+request_t reqlist[10];
+int index_counter = 0;
 
 void *processing(void *args) {
-    processArgs *pargs = (processArgs *)args;
+    processing_args_t *pargs = (processing_args_t *)args;
     DIR *dir = opendir(pargs->input_dir);
     struct dirent *entry;
 
@@ -75,9 +66,19 @@ void *processing(void *args) {
     }
 
     while((entry = readdir(dir)) != NULL){ 
+        const char* file_ext = strrchr(entry->d_name, '.');
 
+        if (file_ext == '.png') {
+            reqlist[index_counter].file_name = entry->d_name;
+            reqlist[index_counter].rotation_angle = pargs->rotation_angle;
+            index_counter++;
+            queue_length++;
+        }
     }
 
+    pthread_cond_signal(&queue_full);
+    //pthread_cond_broadcast(???);
+    pthread_cond_wait(&queue_empty, &queue_lock);
 
 }
 
@@ -218,4 +219,3 @@ int main(int argc, char* argv[]) {
 
     fclose(log_file);
 }
-
