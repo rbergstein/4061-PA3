@@ -1,6 +1,15 @@
 #include "image_rotation.h"
  
- 
+typedef struct ProcessorArgument {
+    char* input_dir;
+    int num_worker_threads;
+    int rotation_angle;
+} processArgs;
+
+typedef struct WorkerArgument {
+    char* threadID;
+} workerArgs;
+
 //Global integer to indicate the length of the queue??
 int queue_length;
 //Global integer to indicate the number of worker threads
@@ -154,7 +163,10 @@ int main(int argc, char* argv[])
     char* output_dir = argv[2]; // used for the rest of the N worker threads
     num_worker_threads = argv[3];
     int rotation_angle = argv[4];
-
     // For the intermediate submission, you only need to traverse a given directory and populating the request queue. 
     // Also, spawn N worker threads, print their threadID (Which you can pass in as parameters when creating the thread) and exit.
+
+    processArgs processor_args = {input_dir, &num_worker_threads, &rotation_angle};
+
+    
 }
