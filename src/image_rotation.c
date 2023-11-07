@@ -93,8 +93,7 @@ void *processing(void *args) {
 */
 
 
-void * worker(void *args)
-{
+void * worker(void *args) {
 
 
         /*
@@ -161,8 +160,7 @@ void * worker(void *args)
 
 */
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
     if(argc != 5)
     {
         fprintf(stderr, "Usage: File Path to image dirctory, File path to output dirctory, number of worker thread, and Rotation angle\n");
@@ -170,14 +168,46 @@ int main(int argc, char* argv[])
     
     ///TODO: 
     // image_rotation is made with "./image_rotation <input_dir> <output_dir> <number_threads> <rotation_angle>" via the writeup
+    // For the intermediate submission, you only need to traverse a given directory and populating the request queue. 
+    // Also, spawn N worker threads, print their threadID (Which you can pass in as parameters when creating the thread) and exit.
+
     char* input_dir = argv[1]; // used to create the single processing thread
     char* output_dir = argv[2]; // used for the rest of the N worker threads
     num_worker_threads = argv[3];
     int rotation_angle = argv[4];
-    // For the intermediate submission, you only need to traverse a given directory and populating the request queue. 
-    // Also, spawn N worker threads, print their threadID (Which you can pass in as parameters when creating the thread) and exit.
+
+    queue_length = 0;
+
+    log_file = fopen("logfile.txt", "w"); // open log_file
+    if (log_file == NULL) {
+        printf("Cannot open log_file\n");
+        exit(-1);
+    }
 
     processArgs processor_args = {input_dir, &num_worker_threads, &rotation_angle};
 
+    pthread_t processor; // create single processor thread
+    if (pthread_create(&processor, NULL, (void *)processing, &processor_args) != 0) {
+        fprintf(stderr, "Error creating processing thread\n");
+        exit(-1);
+    }
     
+    pthread_t worker; // create n worker threads
+    for (int i = 0; i < num_worker_threads; i++) {
+        char threadID[100];
+        sprintf(threadID, "Worker Thread ID: %d\n", i);
+        workerArgs worker_arg = {threadID};
+        if (pthread_create(&worker, NULL (void *)worker, &worker_arg) != 0) {
+            fprintf(stderr, "Error creating a worker thread\n");
+            exit(-1);
+        }
+    }
+
+    pthread_join(processor, NULL);
+    for (int i = 0; i < num_worker_threads; i++) {
+        pthread_join(worker, NULL);
+    }
+
+    fclose(log_file);
 }
+
