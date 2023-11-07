@@ -43,6 +43,7 @@
 
 typedef struct request_queue {
     char* file_name;
+    int rotation_angle;
 }request_t; 
 
 typedef struct processing_args {
