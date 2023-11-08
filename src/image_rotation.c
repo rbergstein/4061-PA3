@@ -84,7 +84,7 @@ void *processing(void *args) {
 
     pthread_cond_signal(&queue_full);
 
-    pthread_cond_wait(&queue_empty, &queue_lock);
+    //pthread_cond_wait(&queue_empty, &queue_lock);
     
     pthread_exit(NULL);
 }
