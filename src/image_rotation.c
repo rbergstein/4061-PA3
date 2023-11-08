@@ -14,6 +14,7 @@ pthread_mutex_t queue_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t queue_full = PTHREAD_COND_INITIALIZER;
 pthread_cond_t queue_empty = PTHREAD_COND_INITIALIZER;
 //How will you track the requests globally between threads? How will you ensure this is thread safe?
+pthread_cond_t processor_done = PTHREAD_COND_INITIALIZER;
 //How will you track which index in the request queue to remove next?
 //How will you update and utilize the current number of requests in the request queue?
 //How will you track the p_thread's that you create for workers?
@@ -61,8 +62,9 @@ void *processing(void *args) {
         exit(1);
     }
 
-    while((entry = readdir(dir)) != NULL){ 
-        if ((strcmp(entry->d_name, ".") == 0) || (strcmp(entry->d_name, "..") == 0)) {
+    while ((entry = readdir(dir)) != NULL) { 
+        
+        if ((strcmp((char *)entry->d_name, ".") == 0) || (strcmp((char *)entry->d_name, "..") == 0)) {
             continue;
         }
 
@@ -72,18 +74,19 @@ void *processing(void *args) {
             exit(1);
         }
 
-        if (strcmp(file_ext == '.png') == 0) {
-            reqlist[index_counter]->file_name = entry->d_name;
-            reqlist[index_counter]->rotation_angle = pargs->rotation_angle;
+        if (strcmp(file_ext, ".png") == 0) {
+            reqlist[index_counter].file_name = entry->d_name;
+            reqlist[index_counter].rotation_angle = pargs->rotation_angle;
             index_counter++;
             queue_length++;
         }
     }
 
     pthread_cond_signal(&queue_full);
-    //pthread_cond_broadcast(???);
-    pthread_cond_wait(&queue_empty, &queue_lock);
 
+    pthread_cond_wait(&queue_empty, &queue_lock);
+    
+    pthread_exit(NULL);
 }
 
 /*
@@ -108,6 +111,8 @@ void *processing(void *args) {
 
 void * worker(void *args) {
 
+    int workerID = (int)(intptr_t) args;
+    printf("Worker thread ID: %d\n", workerID);
 
         /*
             Stbi_load takes:
@@ -118,12 +123,12 @@ void * worker(void *args) {
        // uint8_t* image_result = stbi_load("??????","?????", "?????", "???????",  CHANNEL_NUM);
         
 
-        uint8_t **result_matrix = (uint8_t **)malloc(sizeof(uint8_t*) * width);
-        uint8_t** img_matrix = (uint8_t **)malloc(sizeof(uint8_t*) * width);
-        for(int i = 0; i < width; i++){
-            result_matrix[i] = (uint8_t *)malloc(sizeof(uint8_t) * height);
-            img_matrix[i] = (uint8_t *)malloc(sizeof(uint8_t) * height);
-        }
+        // uint8_t **result_matrix = (uint8_t **)malloc(sizeof(uint8_t*) * width);
+        // uint8_t** img_matrix = (uint8_t **)malloc(sizeof(uint8_t*) * width);
+        // for(int i = 0; i < width; i++){
+        //     result_matrix[i] = (uint8_t *)malloc(sizeof(uint8_t) * height);
+        //     img_matrix[i] = (uint8_t *)malloc(sizeof(uint8_t) * height);
+        // }
         /*
         linear_to_image takes: 
             The image_result matrix from stbi_load
@@ -143,7 +148,7 @@ void * worker(void *args) {
         
         
         //uint8_t* img_array = NULL; ///Hint malloc using sizeof(uint8_t) * width * height
-        uint8_t* img_array = (uint8_t *)malloc(sizeof(uint8_t) * width * height); // attempt at above TODO - Ryan
+        // uint8_t* img_array = (uint8_t *)malloc(sizeof(uint8_t) * width * height); // attempt at above TODO - Ryan
 
 
         ///TODO: you should be ready to call flatten_mat function, using result_matrix
@@ -158,7 +163,8 @@ void * worker(void *args) {
         //img_array
         //width*CHANNEL_NUM
        // stbi_write_png("??????", "?????", "??????", CHANNEL_NUM, "??????", "?????"*CHANNEL_NUM);
-    
+    queue_length -= 1;
+    pthread_exit(NULL);
 
 }
 
@@ -185,7 +191,8 @@ int main(int argc, char* argv[]) {
     // Also, spawn N worker threads, print their threadID (Which you can pass in as parameters when creating the thread) and exit.
 
     char* input_dir = argv[1]; // used to create the single processing thread
-    char* output_dir = argv[2]; // used for the rest of the N worker threads
+    // char* output_dir = argv[2]; // used for the rest of the N worker threads
+    // commented out output_dir to avoid unused var warning for now!
     num_worker_threads = atoi(argv[3]);
     int rotation_angle = atoi(argv[4]);
 
@@ -205,18 +212,18 @@ int main(int argc, char* argv[]) {
         exit(-1);
     }
     
-    // create n worker threads
-    for (int i = 0; i < num_worker_threads; i++) {
+    for (int i = 0; i < num_worker_threads; i++) { // create n worker threads
         if (pthread_create(&worker_threads[i], NULL, (void *)worker, (void *)(intptr_t)i) != 0) {
             fprintf(stderr, "Error creating a worker thread\n");
             exit(-1);
         }
     }
 
-    pthread_join(processor, NULL);
-    for (int i = 0; i < num_worker_threads; i++) {
+    pthread_join(processor, NULL); // joining processor thread
+    for (int i = 0; i < num_worker_threads; i++) { // joining worker threads
         pthread_join(worker_threads[i], NULL);
     }
 
     fclose(log_file);
+    return 0;
 }
