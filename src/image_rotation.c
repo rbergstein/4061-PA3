@@ -62,11 +62,19 @@ void *processing(void *args) {
     }
 
     while((entry = readdir(dir)) != NULL){ 
-        const char* file_ext = strrchr(entry->d_name, '.');
+        if ((strcmp(entry->d_name, ".") == 0) || (strcmp(entry->d_name, "..") == 0)) {
+            continue;
+        }
 
-        if (file_ext == '.png') {
-            reqlist[index_counter].file_name = entry->d_name;
-            reqlist[index_counter].rotation_angle = pargs->rotation_angle;
+        const char* file_ext = strrchr(entry->d_name, '.');
+        if (file_ext == NULL) {
+            perror("Failed to get file extension");
+            exit(1);
+        }
+
+        if (strcmp(file_ext == '.png') == 0) {
+            reqlist[index_counter]->file_name = entry->d_name;
+            reqlist[index_counter]->rotation_angle = pargs->rotation_angle;
             index_counter++;
             queue_length++;
         }
