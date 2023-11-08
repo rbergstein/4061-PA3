@@ -22,8 +22,30 @@ Ryan: Created a group github repository to collectively work out of and set up t
 
 Marwa: Wrote the code for the processing function and helped with struct logic. Worked with group members to do final debugging for interim submission.  
 
-Basma: 
+Basma: Worked on implementing the thread synchronization using condition variables in "image_rotation.c". Wrote down the plan that regards the final submission. 
 
 ## Plan on how you are going to construct the worker threads and how you will make use of mutex locks and unlock and Conditions variables.
 
-(filler)
+1) Construct the Worker Threads
+   Initialize mutex locks and condition variables.
+   Set up a shared queue to hold image processing tasks.
+   Create multiple worker threads in a loop and give each one access to mutex locks, condition variables, a shared task queue, and a flag to signal when task submission is complete.
+
+2) Make Use of Mutex Locks and Condition Variables
+   Lock the mutex, wait on a condition variable until the task queue is not empty or the completion flag is set.
+   Process the image task– If the angle is 180, perform flip_left_to_right. Otherwise, perform flip_upside_down.
+   Save the rotated image using stbi_write_png, update the task queue and processed tasks count.
+   Signal the main thread (processing condition) that a task is processed.
+   If the completion flag is set and the queue is empty, exit the thread. Otherwise, go back to wait for the next task.
+
+
+3) Unlock and Signal Condition Variables
+   Unlock the mutex after each task is processed.
+   Main Thread Work Submission:
+   Traverse directory and queue tasks.
+   Lock mutex, add tasks, signal workers.
+   Set completion flag after all tasks are added.
+   Unlock mutex post each addition.
+   Wait for task processing to complete.
+
+
