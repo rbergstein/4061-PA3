@@ -14,11 +14,11 @@ csel-kh1250-03.cselabs.umn.edu
 
 ## Changes to Makefile
 
-(filler)
+No changes for inter submission.
 
 ## Individual Contributions: 
 
-Ryan: Created a group github repository to collectively work out of and set up the project files and README document.
+Ryan: Created a group github repository to collectively work out of and set up the project files and README document. Filled out the main function in "image_rotation.c" and helped with the struct logic used in "image_rotation.h". Did debugging for interim submission.
 
 Marwa:  
 
