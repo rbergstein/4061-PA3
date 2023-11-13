@@ -1,7 +1,7 @@
 #include "image_rotation.h"
 
 //Global integer to indicate the length of the queue??
-int queue_length;
+#define QUEUE_LENGTH 100
 //Global integer to indicate the number of worker threads
 int num_worker_threads;
 //Global file pointer for writing to log file in worker??
@@ -16,7 +16,9 @@ pthread_cond_t queue_empty = PTHREAD_COND_INITIALIZER;
 //How will you track the requests globally between threads? How will you ensure this is thread safe?
 pthread_cond_t processor_done = PTHREAD_COND_INITIALIZER;
 //How will you track which index in the request queue to remove next?
+int next_index_in_queue = 0;
 //How will you update and utilize the current number of requests in the request queue?
+int number_of_requests = 0;
 //How will you track the p_thread's that you create for workers?
 //How will you know where to insert the next request received into the request queue?
 
@@ -49,7 +51,7 @@ void log_pretty_print(FILE* to_write, int threadId, int requestNumber, char * fi
     5: The processing thread will cross check if the condition from step 4 is met and it will signal to the worker to exit and it will exit.
 
 */
-request_t reqlist[10];
+request_t reqlist[QUEUE_LENGTH];
 int index_counter = 0;
 
 void *processing(void *args) {
@@ -68,7 +70,9 @@ void *processing(void *args) {
             continue;
         }
 
-        const char* file_ext = strrchr(entry->d_name, '.');
+        pthread_mutex_lock(&queue_lock);
+
+        const char* file_ext = strrchr(entry->d_name, '.'); //getting file extension
         if (file_ext == NULL) {
             perror("Failed to get file extension");
             exit(1);
@@ -78,14 +82,18 @@ void *processing(void *args) {
             reqlist[index_counter].file_name = entry->d_name;
             reqlist[index_counter].rotation_angle = pargs->rotation_angle;
             index_counter++;
-            queue_length++;
+            number_of_requests++;
         }
+
+        pthread_mutex_unlock(&queue_lock);
     }
 
+    pthread_mutex_lock(&queue_lock);
+    
     pthread_cond_signal(&queue_full);
 
-    //pthread_cond_wait(&queue_empty, &queue_lock);
-    
+    pthread_cond_wait(&queue_empty, &queue_lock);
+
     pthread_exit(NULL);
 }
 
@@ -119,16 +127,26 @@ void * worker(void *args) {
                 A file name, int pointer for width, height, and bpp
 
         */
+    int width;
+    int height;                            
+    int bpp;                                                        
 
-       // uint8_t* image_result = stbi_load("??????","?????", "?????", "???????",  CHANNEL_NUM);
+    while (1) {
+        pthread_mutex_lock(&queue_lock);
+
+        while (number_of_requests == 0) {
+            pthread_cond_wait(&queue_full,  &queue_lock);
+
+        }
         
+        uint8_t* image_result = stbi_load(reqlist[next_index_in_queue].file_name, &width, &height, &bpp,  CHANNEL_NUM);   
 
-        // uint8_t **result_matrix = (uint8_t **)malloc(sizeof(uint8_t*) * width);
-        // uint8_t** img_matrix = (uint8_t **)malloc(sizeof(uint8_t*) * width);
-        // for(int i = 0; i < width; i++){
-        //     result_matrix[i] = (uint8_t *)malloc(sizeof(uint8_t) * height);
-        //     img_matrix[i] = (uint8_t *)malloc(sizeof(uint8_t) * height);
-        // }
+        uint8_t **result_matrix = (uint8_t **)malloc(sizeof(uint8_t*) * width);
+        uint8_t** img_matrix = (uint8_t **)malloc(sizeof(uint8_t*) * width);
+        for(int i = 0; i < width; i++){
+            result_matrix[i] = (uint8_t *)malloc(sizeof(uint8_t) * height);
+            img_matrix[i] = (uint8_t *)malloc(sizeof(uint8_t) * height);
+        }
         /*
         linear_to_image takes: 
             The image_result matrix from stbi_load
@@ -136,24 +154,29 @@ void * worker(void *args) {
             Width and height that were passed into stbi_load
         
         */
-        //linear_to_image("??????", "????", "????", "????");
+        linear_to_image(image_result, img_matrix, width, height);
         
 
         ////TODO: you should be ready to call flip_left_to_right or flip_upside_down depends on the angle(Should just be 180 or 270)
         //both take image matrix from linear_to_image, and result_matrix to store data, and width and height.
         //Hint figure out which function you will call. 
         //flip_left_to_right(img_matrix, result_matrix, width, height); or flip_upside_down(img_matrix, result_matrix ,width, height);
-
+        if (reqlist[next_index_in_queue].rotation_angle == 180) {
+            flip_left_to_right(img_matrix, result_matrix, width, height);
+        }
+        else {
+            flip_upside_down(img_matrix, result_matrix ,width, height);
+        }
 
         
         
         //uint8_t* img_array = NULL; ///Hint malloc using sizeof(uint8_t) * width * height
-        // uint8_t* img_array = (uint8_t *)malloc(sizeof(uint8_t) * width * height); // attempt at above TODO - Ryan
+        uint8_t* img_array = (uint8_t *)malloc(sizeof(uint8_t) * width * height); // attempt at above TODO - Ryan
 
 
         ///TODO: you should be ready to call flatten_mat function, using result_matrix
         //img_arry and width and height; 
-        //flatten_mat("??????", "??????", "????", "???????");
+        flatten_mat(result_matrix, img_array, width, height);
 
 
         ///TODO: You should be ready to call stbi_write_png using:
@@ -162,9 +185,17 @@ void * worker(void *args) {
         //height
         //img_array
         //width*CHANNEL_NUM
-       // stbi_write_png("??????", "?????", "??????", CHANNEL_NUM, "??????", "?????"*CHANNEL_NUM);
-    queue_length -= 1;
-    pthread_exit(NULL);
+       stbi_write_png("??????", width, height, CHANNEL_NUM, img_array, width*CHANNEL_NUM);
+
+        number_of_requests--;
+        next_index_in_queue++;
+
+        pthread_cond_wait(&queue_empty, &queue_lock);
+        pthread_mutex_unlock(&queue_lock);
+        //pthread_exit(NULL);
+
+    }
+
 
 }
 
@@ -223,6 +254,11 @@ int main(int argc, char* argv[]) {
     for (int i = 0; i < num_worker_threads; i++) { // joining worker threads
         pthread_join(worker_threads[i], NULL);
     }
+
+    // for (int i=0; i < queue_length; i++) {
+    //     printf("file name: %s\n", reqlist[i].file_name);
+    //     printf("rotation angle: %d\n", reqlist[i].rotation_angle);
+    // }
 
     fclose(log_file);
     return 0;
