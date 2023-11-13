@@ -18,7 +18,7 @@ pthread_cond_t processor_done = PTHREAD_COND_INITIALIZER;
 //How will you track which index in the request queue to remove next?
 int next_index_in_queue = 0;
 //How will you update and utilize the current number of requests in the request queue?
-int number_of_requests = 0;
+int number_of_requests;
 //How will you track the p_thread's that you create for workers?
 //How will you know where to insert the next request received into the request queue?
 
@@ -227,7 +227,7 @@ int main(int argc, char* argv[]) {
     num_worker_threads = atoi(argv[3]);
     int rotation_angle = atoi(argv[4]);
 
-    queue_length = 0;
+    number_of_requests = 0;
 
     log_file = fopen("logfile.txt", "w"); // open log_file
     if (log_file == NULL) {
