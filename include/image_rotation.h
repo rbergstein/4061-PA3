@@ -53,6 +53,7 @@ typedef struct processing_args {
 } processing_args_t;
 
 typedef struct worker_args {
+    char* input_dir;
     char* output_dir;
     int threadId;
     int requests_processed;

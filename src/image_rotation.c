@@ -120,11 +120,9 @@ void *processing(void *args) {
 
 
 void * worker(void *args) {
-
+    
     worker_args_t *wargs = (worker_args_t *) args;
-
-    printf("Worker thread ID: %d\n", wargs->threadId);
-
+    
         /*
             Stbi_load takes:
                 A file name, int pointer for width, height, and bpp
@@ -139,7 +137,7 @@ void * worker(void *args) {
 
         while (number_of_requests == 0) {
             pthread_cond_wait(&queue_full,  &queue_lock);
-
+            
         }
         
         uint8_t* image_result = stbi_load(reqlist[next_index_in_queue].file_name, &width, &height, &bpp,  CHANNEL_NUM);   
@@ -188,15 +186,27 @@ void * worker(void *args) {
         //height
         //img_array
         //width*CHANNEL_NUM
-        stbi_write_png(wargs->output_dir, width, height, CHANNEL_NUM, img_array, width*CHANNEL_NUM);
+        char full_path[BUFF_SIZE];
+        snprintf(full_path, sizeof(full_path), "%s/%s", wargs->input_dir, get_filename_from_path(reqlist[next_index_in_queue].file_name));
+        stbi_write_png(full_path, width, height, CHANNEL_NUM, img_array, width*CHANNEL_NUM);
 
+        wargs->requests_processed++;
         number_of_requests--;
         next_index_in_queue++;
 
+        log_pretty_print(log_file, wargs->threadId, wargs->requests_processed, full_path);
+        
         pthread_cond_wait(&queue_empty, &queue_lock);
         pthread_mutex_unlock(&queue_lock);
         //pthread_exit(NULL);
 
+        for (int i = 0; i < width; i++) {
+            free(result_matrix[i]);
+            free(img_matrix[i]);
+        }
+        free(result_matrix);
+        free(img_matrix);
+        free(img_array);
     }
 
 
@@ -231,7 +241,7 @@ int main(int argc, char* argv[]) {
 
     number_of_requests = 0;
 
-    log_file = fopen("logfile.txt", "w"); // open log_file
+    log_file = fopen(LOG_FILE_NAME, "w"); // open log_file
     if (log_file == NULL) {
         printf("Cannot open log_file\n");
         exit(-1);
@@ -246,7 +256,7 @@ int main(int argc, char* argv[]) {
     }
 
     for (int i = 0; i < num_worker_threads; i++) { // create n worker threads
-        worker_args_t worker_args = {output_dir, i, 0};
+        worker_args_t worker_args = {input_dir, output_dir, i, 0};
         if (pthread_create(&worker_threads[i], NULL, (void *)worker, &worker_args) != 0) {
             fprintf(stderr, "Error creating a worker thread\n");
             exit(-1);
@@ -254,8 +264,8 @@ int main(int argc, char* argv[]) {
     }
 
     pthread_join(processor, NULL); // joining processor thread
-    for (int i = 0; i < num_worker_threads; i++) { // joining worker threads
-        pthread_join(worker_threads[i], NULL);
+    for (int j = 0; j < num_worker_threads; j++) { // joining worker threads
+        pthread_join(worker_threads[j], NULL);
     }
 
     // for (int i=0; i < queue_length; i++) {
