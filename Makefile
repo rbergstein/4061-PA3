@@ -24,3 +24,4 @@ outdir:
 clean:
 	rm -f image_rotation
 	rm -rf output
+	rem -f request_log
