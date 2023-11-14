@@ -14,7 +14,7 @@ csel-kh1250-03.cselabs.umn.edu
 
 ## Changes to Makefile
 
-No changes for inter submission.
+Added a line to in the "make clean" section to remove the request_log executable.
 
 ## Individual Contributions: 
 
