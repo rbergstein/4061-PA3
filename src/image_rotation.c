@@ -121,8 +121,9 @@ void *processing(void *args) {
 
 void * worker(void *args) {
 
-    int workerID = (int)(intptr_t) args;
-    printf("Worker thread ID: %d\n", workerID);
+    worker_args_t *wargs = (worker_args_t *) args;
+
+    printf("Worker thread ID: %d\n", wargs->threadId);
 
         /*
             Stbi_load takes:
@@ -187,7 +188,7 @@ void * worker(void *args) {
         //height
         //img_array
         //width*CHANNEL_NUM
-        stbi_write_png("??????", width, height, CHANNEL_NUM, img_array, width*CHANNEL_NUM);
+        stbi_write_png(wargs->output_dir, width, height, CHANNEL_NUM, img_array, width*CHANNEL_NUM);
 
         number_of_requests--;
         next_index_in_queue++;
@@ -224,7 +225,7 @@ int main(int argc, char* argv[]) {
     // Also, spawn N worker threads, print their threadID (Which you can pass in as parameters when creating the thread) and exit.
 
     char* input_dir = argv[1]; // used to create the single processing thread
-    // char* output_dir = argv[2]; // used for the rest of the N worker threads
+    char* output_dir = argv[2]; // used for the rest of the N worker threads
     num_worker_threads = atoi(argv[3]);
     int rotation_angle = atoi(argv[4]);
 
@@ -243,9 +244,10 @@ int main(int argc, char* argv[]) {
         fprintf(stderr, "Error creating processing thread\n");
         exit(-1);
     }
-    
+
     for (int i = 0; i < num_worker_threads; i++) { // create n worker threads
-        if (pthread_create(&worker_threads[i], NULL, (void *)worker, (void *)(intptr_t)i) != 0) {
+        worker_args_t worker_args = {output_dir, i, 0};
+        if (pthread_create(&worker_threads[i], NULL, (void *)worker, &worker_args) != 0) {
             fprintf(stderr, "Error creating a worker thread\n");
             exit(-1);
         }

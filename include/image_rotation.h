@@ -52,6 +52,12 @@ typedef struct processing_args {
     int rotation_angle;
 } processing_args_t;
 
+typedef struct worker_args {
+    char* output_dir;
+    int threadId;
+    int requests_processed;
+} worker_args_t;
+
 
 /********************* [ Function Prototypes       ] **********************/
 void *processing(void *args); 
