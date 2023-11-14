@@ -32,8 +32,10 @@ int number_of_requests;
     The function output: 
     it should output the threadId, requestNumber, file_name into the logfile and stdout.
 */
-void log_pretty_print(FILE* to_write, int threadId, int requestNumber, char * file_name){ // not needed for inter sub
-   
+void log_pretty_print(FILE* to_write, int threadId, int requestNumber, char * file_name){
+    fprintf(log_file, "[%d][%d][%s]\n", threadId, requestNumber, file_name); // should look like [8][5][./img/30.png]
+    printf("[%d][%d][%s]\n", threadId, requestNumber, file_name);
+    fflush(stdout);
 }
 
 
@@ -171,7 +173,7 @@ void * worker(void *args) {
         
         
         //uint8_t* img_array = NULL; ///Hint malloc using sizeof(uint8_t) * width * height
-        uint8_t* img_array = (uint8_t *)malloc(sizeof(uint8_t) * width * height); // attempt at above TODO - Ryan
+        uint8_t* img_array = (uint8_t *)malloc(sizeof(uint8_t) * width * height);
 
 
         ///TODO: you should be ready to call flatten_mat function, using result_matrix
@@ -185,7 +187,7 @@ void * worker(void *args) {
         //height
         //img_array
         //width*CHANNEL_NUM
-       stbi_write_png("??????", width, height, CHANNEL_NUM, img_array, width*CHANNEL_NUM);
+        stbi_write_png("??????", width, height, CHANNEL_NUM, img_array, width*CHANNEL_NUM);
 
         number_of_requests--;
         next_index_in_queue++;
@@ -223,7 +225,6 @@ int main(int argc, char* argv[]) {
 
     char* input_dir = argv[1]; // used to create the single processing thread
     // char* output_dir = argv[2]; // used for the rest of the N worker threads
-    // commented out output_dir to avoid unused var warning for now!
     num_worker_threads = atoi(argv[3]);
     int rotation_angle = atoi(argv[4]);
 
