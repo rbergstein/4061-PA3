@@ -75,9 +75,10 @@ void *processing(void *args) {
         pthread_mutex_lock(&queue_lock);
 
         const char* file_ext = strrchr(entry->d_name, '.'); //getting file extension
-        if (file_ext == NULL) {
-            perror("Failed to get file extension");
-            exit(1);
+
+        if (file_ext == NULL || file_ext[0] == '\0') {
+            pthread_mutex_unlock(&queue_lock);
+            continue;
         }
 
         if (strcmp(file_ext, ".png") == 0) {
