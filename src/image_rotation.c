@@ -86,6 +86,7 @@ void *processing(void *args) {
             index_counter++;
             number_of_requests++;
         }
+        // send signal to worker
 
         pthread_mutex_unlock(&queue_lock);
     }
@@ -158,7 +159,7 @@ void * worker(void *args) {
         linear_to_image(image_result, img_matrix, width, height);
         
 
-        ////TODO: you should be ready to call flip_left_to_right or flip_upside_down depends on the angle(Should just be 180 or 270)
+        ////TODO: you should be ready to call flip_left_to-_right or flip_upside_down depends on the angle(Should just be 180 or 270)
         //both take image matrix from linear_to_image, and result_matrix to store data, and width and height.
         //Hint figure out which function you will call. 
         //flip_left_to_right(img_matrix, result_matrix, width, height); or flip_upside_down(img_matrix, result_matrix ,width, height);
@@ -194,9 +195,6 @@ void * worker(void *args) {
         number_of_requests--;
         next_index_in_queue++;
 
-        log_pretty_print(log_file, wargs->threadId, wargs->requests_processed, full_path);
-        
-        pthread_cond_wait(&queue_empty, &queue_lock);
         pthread_mutex_unlock(&queue_lock);
         //pthread_exit(NULL);
 
@@ -207,8 +205,11 @@ void * worker(void *args) {
         free(result_matrix);
         free(img_matrix);
         free(img_array);
+        
+        log_pretty_print(log_file, wargs->threadId, wargs->requests_processed, full_path);
     }
 
+    pthread_exit(NULL);
 
 }
 
