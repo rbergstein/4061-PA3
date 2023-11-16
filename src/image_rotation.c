@@ -96,8 +96,6 @@ void *processing(void *args) {
 
     pthread_mutex_unlock(&queue_lock);
 
-    printf("numreq: %d\n", number_of_requests);
-
     pthread_mutex_lock(&queue_lock);
     pthread_cond_signal(&processor_done);
     pthread_mutex_unlock(&queue_lock);
@@ -141,7 +139,6 @@ void * worker(void *args) {
         pthread_mutex_lock(&queue_lock);
         while (number_of_requests == 0) {
             pthread_cond_wait(&queue_full,  &queue_lock);
-            
         }
         
         uint8_t* image_result = stbi_load(reqlist[next_index_in_queue].file_name, &width, &height, &bpp,  CHANNEL_NUM);   
@@ -191,7 +188,7 @@ void * worker(void *args) {
         //img_array
         //width*CHANNEL_NUM
         char full_path[BUFF_SIZE];
-        snprintf(full_path, sizeof(full_path), "%s/%s", wargs->input_dir, get_filename_from_path(reqlist[next_index_in_queue].file_name));
+        snprintf(full_path, sizeof(full_path), "%s/%s", wargs->output_dir, get_filename_from_path(reqlist[next_index_in_queue].file_name));
         stbi_write_png(full_path, width, height, CHANNEL_NUM, img_array, width*CHANNEL_NUM);
 
         wargs->requests_processed++;
@@ -214,9 +211,6 @@ void * worker(void *args) {
 
         pthread_mutex_unlock(&queue_lock);
     }
-
-    pthread_exit(NULL);
-
 }
 
 /*
