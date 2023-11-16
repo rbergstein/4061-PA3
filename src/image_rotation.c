@@ -18,7 +18,7 @@ pthread_cond_t processor_done = PTHREAD_COND_INITIALIZER;
 //How will you track which index in the request queue to remove next?
 int next_index_in_queue = 0;
 //How will you update and utilize the current number of requests in the request queue?
-int number_of_requests;
+int number_of_requests = 0;
 //How will you track the p_thread's that you create for workers?
 //How will you know where to insert the next request received into the request queue?
 
@@ -65,14 +65,14 @@ void *processing(void *args) {
         perror("Failed to open directory");
         exit(1);
     }
+    
+    pthread_mutex_lock(&queue_lock);
 
     while ((entry = readdir(dir)) != NULL) { 
         
         if ((strcmp((char *)entry->d_name, ".") == 0) || (strcmp((char *)entry->d_name, "..") == 0)) {
             continue;
         }
-
-        pthread_mutex_lock(&queue_lock);
 
         const char* file_ext = strrchr(entry->d_name, '.'); //getting file extension
 
@@ -89,14 +89,18 @@ void *processing(void *args) {
         }
         // send signal to worker
 
-        pthread_mutex_unlock(&queue_lock);
+        if (number_of_requests == 1) {
+            pthread_cond_signal(&queue_full);
+        }
     }
 
-    pthread_mutex_lock(&queue_lock);
-    
-    pthread_cond_signal(&queue_full);
+    pthread_mutex_unlock(&queue_lock);
 
-    pthread_cond_wait(&queue_empty, &queue_lock);
+    printf("numreq: %d\n", number_of_requests);
+
+    pthread_mutex_lock(&queue_lock);
+    pthread_cond_signal(&processor_done);
+    pthread_mutex_unlock(&queue_lock);
 
     pthread_exit(NULL);
 }
@@ -122,7 +126,6 @@ void *processing(void *args) {
 
 
 void * worker(void *args) {
-    
     worker_args_t *wargs = (worker_args_t *) args;
     
         /*
@@ -136,7 +139,6 @@ void * worker(void *args) {
 
     while (1) {
         pthread_mutex_lock(&queue_lock);
-
         while (number_of_requests == 0) {
             pthread_cond_wait(&queue_full,  &queue_lock);
             
@@ -195,9 +197,7 @@ void * worker(void *args) {
         wargs->requests_processed++;
         number_of_requests--;
         next_index_in_queue++;
-
-        pthread_mutex_unlock(&queue_lock);
-        //pthread_exit(NULL);
+        
 
         for (int i = 0; i < width; i++) {
             free(result_matrix[i]);
@@ -208,6 +208,11 @@ void * worker(void *args) {
         free(img_array);
         
         log_pretty_print(log_file, wargs->threadId, wargs->requests_processed, full_path);
+
+        pthread_cond_signal(&queue_empty); // Signal that the queue is not full
+        pthread_cond_signal(&processor_done); // Signal that the worker is done
+
+        pthread_mutex_unlock(&queue_lock);
     }
 
     pthread_exit(NULL);
