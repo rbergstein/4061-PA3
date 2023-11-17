@@ -20,7 +20,7 @@ Added a line to in the "make clean" section to remove the request_log executable
 
 Ryan: Created a group github repository to collectively work out of and set up the project files and README document. Filled out the main function in "image_rotation.c" and helped with the struct logic used in "image_rotation.h". Did debugging for interim submission.
 
-Marwa: Wrote the code for the processing function and helped with struct logic. Worked with group members to do final debugging for interim submission.  
+Marwa: Wrote the code for the processing function and helped with struct logic. Worked with group members to do final debugging for interim submission. Worked with group members to write code for the worker function and complete the processing function. Helped with debugging.   
 
 Basma: Worked on implementing the thread synchronization using condition variables in "image_rotation.c". Wrote down the plan that regards the final submission. 
 
