@@ -20,6 +20,8 @@ int next_index_in_queue = 0;
 //How will you update and utilize the current number of requests in the request queue?
 int number_of_requests = 0;
 //How will you track the p_thread's that you create for workers?
+bool terminate = false;
+int workers_exited = 0;
 //How will you know where to insert the next request received into the request queue?
 
 
@@ -94,10 +96,13 @@ void *processing(void *args) {
         }
     }
 
-    pthread_mutex_unlock(&queue_lock);
+   
+    terminate = true;
+    pthread_cond_broadcast(&queue_full);
 
-    pthread_mutex_lock(&queue_lock);
-    pthread_cond_signal(&processor_done);
+    while (workers_exited <= num_worker_threads) {
+        pthread_cond_wait(&processor_done, &queue_lock);
+    }
     pthread_mutex_unlock(&queue_lock);
 
     pthread_exit(NULL);
@@ -137,18 +142,18 @@ void * worker(void *args) {
 
     while (1) {
         pthread_mutex_lock(&queue_lock);
-        while (number_of_requests == 0) {
+        while (number_of_requests == 0 && !terminate) {
             pthread_cond_wait(&queue_full,  &queue_lock);
         }
         
-        uint8_t* image_result = stbi_load(reqlist[next_index_in_queue].file_name, &width, &height, &bpp,  CHANNEL_NUM);   
+        uint8_t *image_result = stbi_load(reqlist[next_index_in_queue].file_name, &width, &height, &bpp,  CHANNEL_NUM);   
 
         uint8_t **result_matrix = (uint8_t **)malloc(sizeof(uint8_t*) * width);
-        uint8_t** img_matrix = (uint8_t **)malloc(sizeof(uint8_t*) * width);
-        for(int i = 0; i < width; i++){
-            result_matrix[i] = (uint8_t *)malloc(sizeof(uint8_t) * height);
-            img_matrix[i] = (uint8_t *)malloc(sizeof(uint8_t) * height);
-        }
+        uint8_t **img_matrix = (uint8_t **)malloc(sizeof(uint8_t*) * width);
+        // for (int i = 0; i < width; i++){
+        //     result_matrix[i] = (uint8_t *)malloc(sizeof(uint8_t) * height);
+        //     img_matrix[i] = (uint8_t *)malloc(sizeof(uint8_t) * height);
+        // }
         /*
         linear_to_image takes: 
             The image_result matrix from stbi_load
@@ -195,7 +200,21 @@ void * worker(void *args) {
         number_of_requests--;
         next_index_in_queue++;
         
+        log_pretty_print(log_file, wargs->threadId, wargs->requests_processed, full_path);
 
+        if (number_of_requests == 0 && terminate) {
+            pthread_cond_signal(&processor_done);
+            workers_exited++;
+            pthread_mutex_unlock(&queue_lock);
+            pthread_exit(NULL);
+        }
+
+        pthread_cond_signal(&queue_empty); // Signal that the queue is not full
+        pthread_cond_signal(&processor_done); // Signal that the worker is done
+
+        pthread_mutex_unlock(&queue_lock);
+
+        
         for (int i = 0; i < width; i++) {
             free(result_matrix[i]);
             free(img_matrix[i]);
@@ -203,13 +222,11 @@ void * worker(void *args) {
         free(result_matrix);
         free(img_matrix);
         free(img_array);
-        
-        log_pretty_print(log_file, wargs->threadId, wargs->requests_processed, full_path);
 
-        pthread_cond_signal(&queue_empty); // Signal that the queue is not full
-        pthread_cond_signal(&processor_done); // Signal that the worker is done
 
-        pthread_mutex_unlock(&queue_lock);
+
+
+
     }
 }
 
@@ -265,6 +282,7 @@ int main(int argc, char* argv[]) {
     }
 
     pthread_join(processor, NULL); // joining processor thread
+
     for (int j = 0; j < num_worker_threads; j++) { // joining worker threads
         pthread_join(worker_threads[j], NULL);
     }
