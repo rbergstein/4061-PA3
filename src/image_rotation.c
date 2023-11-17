@@ -34,14 +34,8 @@ int workers_exited = 0;
     The function output: 
     it should output the threadId, requestNumber, file_name into the logfile and stdout.
 */
-void log_pretty_print(FILE* to_write, int threadId, int requestNumber, char * file_name) {
-    if (to_write == NULL) {
-        printf("Cannot open log_file\n");
-        exit(-1);
-    }
-
-    fprintf(to_write, "[%d][%d][%s]\n", threadId, requestNumber, file_name); // should look like [8][5][./img/30.png]
-    fflush(to_write);
+void log_pretty_print(FILE* to_write, int threadId, int requestNumber, char * file_name){
+    fprintf(log_file, "[%d][%d][%s]\n", threadId, requestNumber, file_name); // should look like [8][5][./img/30.png]
     printf("[%d][%d][%s]\n", threadId, requestNumber, file_name);
     fflush(stdout);
 }
@@ -64,6 +58,7 @@ void log_pretty_print(FILE* to_write, int threadId, int requestNumber, char * fi
 request_t reqlist[QUEUE_LENGTH];
 int index_counter = 0;
 
+
 void *processing(void *args) {
     processing_args_t *pargs = (processing_args_t *) args;
     DIR *dir = opendir(pargs->input_dir);
@@ -71,47 +66,45 @@ void *processing(void *args) {
 
     if (dir == NULL) {
         perror("Failed to open directory");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     
-    pthread_mutex_lock(&queue_lock);
-
     while ((entry = readdir(dir)) != NULL) { 
+        pthread_mutex_lock(&queue_lock);
         
-        if ((strcmp((char *)entry->d_name, ".") == 0) || (strcmp((char *)entry->d_name, "..") == 0)) {
-            continue;
-        }
-
-        const char* file_ext = strrchr(entry->d_name, '.'); //getting file extension
-
-        if (file_ext == NULL || file_ext[0] == '\0') {
+        if ((strcmp(entry->d_name, ".") == 0) || (strcmp(entry->d_name, "..") == 0)) {
             pthread_mutex_unlock(&queue_lock);
             continue;
         }
 
-        if (strcmp(file_ext, ".png") == 0) {
-            reqlist[index_counter].file_name = entry->d_name;
-            reqlist[index_counter].rotation_angle = pargs->rotation_angle;
-            index_counter++;
-            number_of_requests++;
+        const char* file_ext = strrchr(entry->d_name, '.');
+        if (file_ext && strcmp(file_ext, ".png") == 0) {
+            if (index_counter < QUEUE_LENGTH) {
+                reqlist[index_counter].file_name = strdup(entry->d_name); // Correct memory allocation for file_name
+                reqlist[index_counter].rotation_angle = pargs->rotation_angle;
+                index_counter++;
+                number_of_requests++;
+            }
         }
-        // send signal to worker
-
+        
         if (number_of_requests == 1) {
-            pthread_cond_signal(&queue_full);
+            pthread_cond_broadcast(&queue_empty); // Use broadcast to wake up all waiting workers
         }
+        
+        pthread_mutex_unlock(&queue_lock);
     }
 
-   
+    closedir(dir);
+    pthread_mutex_lock(&queue_lock);
     terminate = true;
-    pthread_cond_broadcast(&queue_full);
+    pthread_cond_broadcast(&queue_empty); // Notify workers that no more files will be added
 
-    while (workers_exited <= num_worker_threads) {
+    // Signal the processor_done condition variable to let main thread know we're done
+    while (workers_exited < num_worker_threads) {
         pthread_cond_wait(&processor_done, &queue_lock);
     }
     pthread_mutex_unlock(&queue_lock);
 
-    closedir(dir);
     pthread_exit(NULL);
 }
 
@@ -148,9 +141,20 @@ void * worker(void *args) {
     int bpp;                                                        
 
     while (1) {
+
         pthread_mutex_lock(&queue_lock);
         while (number_of_requests == 0 && !terminate) {
-            pthread_cond_wait(&queue_full,  &queue_lock);
+            pthread_cond_wait(&queue_empty, &queue_lock);
+        }
+
+        // Check if it's time to terminate
+        if (terminate && number_of_requests == 0) {
+            workers_exited++;
+            if (workers_exited >= num_worker_threads) {
+                pthread_cond_signal(&processor_done); // Notify the processor that all workers are done
+            }
+            pthread_mutex_unlock(&queue_lock);
+            pthread_exit(NULL);
         }
         
         uint8_t *image_result = stbi_load(reqlist[next_index_in_queue].file_name, &width, &height, &bpp,  CHANNEL_NUM);   
@@ -209,6 +213,13 @@ void * worker(void *args) {
         
         log_pretty_print(log_file, wargs->threadId, wargs->requests_processed, full_path);
 
+        if (number_of_requests == 0 && terminate) {
+            pthread_cond_signal(&processor_done);
+            workers_exited++;
+            pthread_mutex_unlock(&queue_lock);
+            pthread_exit(NULL);
+        }
+
         pthread_cond_signal(&queue_empty); // Signal that the queue is not full
         pthread_cond_signal(&processor_done); // Signal that the worker is done
 
@@ -219,17 +230,14 @@ void * worker(void *args) {
             free(result_matrix[i]);
             free(img_matrix[i]);
         }
-
         free(result_matrix);
         free(img_matrix);
         free(img_array);
 
-        if (number_of_requests == 0 && terminate) {
-            pthread_cond_signal(&processor_done);
-            workers_exited++;
-            pthread_mutex_unlock(&queue_lock);
-            pthread_exit(NULL);
-        }
+
+
+
+
     }
 }
 
@@ -245,15 +253,15 @@ void * worker(void *args) {
 */
 
 int main(int argc, char* argv[]) {
-    if(argc != 5) {
+    if(argc != 5)
+    {
         fprintf(stderr, "Usage: File Path to image dirctory, File path to output dirctory, number of worker thread, and Rotation angle\n");
-        return -1;
     }
     
     ///TODO: 
     // image_rotation is made with "./image_rotation <input_dir> <output_dir> <number_threads> <rotation_angle>" via the writeup
     // For the intermediate submission, you only need to traverse a given directory and populating the request queue. 
-    // Also, spawn N worker threads, print their threadID (Which you can pass in as parameters when creating the thread) and exit.
+    // Also, spawn N worker threads, print their threadID (Which you can pass in as parameters when creating the thread) and exit.
 
     char* input_dir = argv[1]; // used to create the single processing thread
     char* output_dir = argv[2]; // used for the rest of the N worker threads
@@ -290,6 +298,12 @@ int main(int argc, char* argv[]) {
         pthread_join(worker_threads[j], NULL);
     }
 
+    // for (int i=0; i < queue_length; i++) {
+    //     printf("file name: %s\n", reqlist[i].file_name);
+    //     printf("rotation angle: %d\n", reqlist[i].rotation_angle);
+    // }
+
     fclose(log_file);
     return 0;
 }
+
