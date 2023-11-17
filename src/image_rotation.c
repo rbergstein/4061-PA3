@@ -34,8 +34,14 @@ int workers_exited = 0;
     The function output: 
     it should output the threadId, requestNumber, file_name into the logfile and stdout.
 */
-void log_pretty_print(FILE* to_write, int threadId, int requestNumber, char * file_name){
-    fprintf(log_file, "[%d][%d][%s]\n", threadId, requestNumber, file_name); // should look like [8][5][./img/30.png]
+void log_pretty_print(FILE* to_write, int threadId, int requestNumber, char * file_name) {
+    if (to_write == NULL) {
+        printf("Cannot open log_file\n");
+        exit(-1);
+    }
+
+    fprintf(to_write, "[%d][%d][%s]\n", threadId, requestNumber, file_name); // should look like [8][5][./img/30.png]
+    fflush(to_write);
     printf("[%d][%d][%s]\n", threadId, requestNumber, file_name);
     fflush(stdout);
 }
@@ -105,6 +111,7 @@ void *processing(void *args) {
     }
     pthread_mutex_unlock(&queue_lock);
 
+    closedir(dir);
     pthread_exit(NULL);
 }
 
@@ -150,10 +157,10 @@ void * worker(void *args) {
 
         uint8_t **result_matrix = (uint8_t **)malloc(sizeof(uint8_t*) * width);
         uint8_t **img_matrix = (uint8_t **)malloc(sizeof(uint8_t*) * width);
-        // for (int i = 0; i < width; i++){
-        //     result_matrix[i] = (uint8_t *)malloc(sizeof(uint8_t) * height);
-        //     img_matrix[i] = (uint8_t *)malloc(sizeof(uint8_t) * height);
-        // }
+        for (int i = 0; i < width; i++){
+            result_matrix[i] = (uint8_t *)malloc(sizeof(uint8_t) * height);
+            img_matrix[i] = (uint8_t *)malloc(sizeof(uint8_t) * height);
+        }
         /*
         linear_to_image takes: 
             The image_result matrix from stbi_load
@@ -202,13 +209,6 @@ void * worker(void *args) {
         
         log_pretty_print(log_file, wargs->threadId, wargs->requests_processed, full_path);
 
-        if (number_of_requests == 0 && terminate) {
-            pthread_cond_signal(&processor_done);
-            workers_exited++;
-            pthread_mutex_unlock(&queue_lock);
-            pthread_exit(NULL);
-        }
-
         pthread_cond_signal(&queue_empty); // Signal that the queue is not full
         pthread_cond_signal(&processor_done); // Signal that the worker is done
 
@@ -219,14 +219,17 @@ void * worker(void *args) {
             free(result_matrix[i]);
             free(img_matrix[i]);
         }
+
         free(result_matrix);
         free(img_matrix);
         free(img_array);
 
-
-
-
-
+        if (number_of_requests == 0 && terminate) {
+            pthread_cond_signal(&processor_done);
+            workers_exited++;
+            pthread_mutex_unlock(&queue_lock);
+            pthread_exit(NULL);
+        }
     }
 }
 
@@ -259,7 +262,7 @@ int main(int argc, char* argv[]) {
 
     number_of_requests = 0;
 
-    log_file = fopen(LOG_FILE_NAME, "w"); // open log_file
+    log_file = fopen(LOG_FILE_NAME, "a"); // open log_file
     if (log_file == NULL) {
         printf("Cannot open log_file\n");
         exit(-1);
@@ -286,11 +289,6 @@ int main(int argc, char* argv[]) {
     for (int j = 0; j < num_worker_threads; j++) { // joining worker threads
         pthread_join(worker_threads[j], NULL);
     }
-
-    // for (int i=0; i < queue_length; i++) {
-    //     printf("file name: %s\n", reqlist[i].file_name);
-    //     printf("rotation angle: %d\n", reqlist[i].rotation_angle);
-    // }
 
     fclose(log_file);
     return 0;
