@@ -245,9 +245,9 @@ void * worker(void *args) {
 */
 
 int main(int argc, char* argv[]) {
-    if(argc != 5)
-    {
+    if(argc != 5) {
         fprintf(stderr, "Usage: File Path to image dirctory, File path to output dirctory, number of worker thread, and Rotation angle\n");
+        return -1;
     }
     
     ///TODO: 
