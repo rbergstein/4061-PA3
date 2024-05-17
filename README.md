@@ -1,4 +1,4 @@
-# 4061-PA3
+# PA3-Parallel-Image-Processing
 
 ## PA Group 98 members
 
